@@ -1,0 +1,170 @@
+heat_template_version: 2026-02-14
+
+description: |
+  Template de création du réseau privé, sous-réseau,
+  routeur et règles de sécurité pour l'infrastructure.
+
+# ============================================================
+# PARAMÈTRES — Les variables qu'on peut changer au déploiement
+# ============================================================
+parameters:
+
+  network_name:
+    type: string
+    label: Nom du réseau privé
+    description: Nom du réseau interne créé pour les VMs
+    default: heat-private-network
+
+  subnet_name:
+    type: string
+    label: Nom du sous-réseau
+    default: heat-private-subnet
+
+  subnet_cidr:
+    type: string
+    label: Plage d'adresses IP du sous-réseau
+    description: Format CIDR ex 192.168.1.0/24
+    default: "192.168.1.0/24"
+
+  dns_servers:
+    type: comma_delimited_list
+    label: Serveurs DNS
+    default: "8.8.8.8,8.8.4.4"
+
+  router_name:
+    type: string
+    label: Nom du routeur
+    default: heat-router
+
+  external_network:
+    type: string
+    label: Nom du réseau externe (public)
+    description: Réseau externe de DevStack pour accès internet
+    default: public
+
+  security_group_name:
+    type: string
+    label: Nom du groupe de sécurité
+    default: heat-security-group
+
+# ============================================================
+# RESSOURCES — Ce qu'on veut créer dans OpenStack
+# ============================================================
+resources:
+
+  # --- 1. Création du réseau privé ---
+  private_network:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: network_name }
+      admin_state_up: true
+
+  # --- 2. Création du sous-réseau ---
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { get_param: subnet_name }
+      network_id: { get_resource: private_network }
+      cidr: { get_param: subnet_cidr }
+      dns_nameservers: { get_param: dns_servers }
+      ip_version: 4
+      enable_dhcp: true
+
+  # --- 3. Création du routeur ---
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: { get_param: router_name }
+      external_gateway_info:
+        network: { get_param: external_network }
+
+  # --- 4. Connexion du sous-réseau au routeur ---
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: private_subnet }
+
+  # --- 5. Groupe de sécurité (pare-feu) ---
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { get_param: security_group_name }
+      description: Règles de sécurité pour les VMs Heat
+      rules:
+        # Autoriser SSH (port 22) depuis n'importe où
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: "0.0.0.0/0"
+          direction: ingress
+
+        # Autoriser HTTP (port 80)
+        - protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+          remote_ip_prefix: "0.0.0.0/0"
+          direction: ingress
+
+        # Autoriser HTTPS (port 443)
+        - protocol: tcp
+          port_range_min: 443
+          port_range_max: 443
+          remote_ip_prefix: "0.0.0.0/0"
+          direction: ingress
+
+        # Autoriser l'adaptateur de métriques (port 5000)
+        - protocol: tcp
+          port_range_min: 5000
+          port_range_max: 5000
+          remote_ip_prefix: "0.0.0.0/0"
+          direction: ingress
+
+        # Autoriser les pings ICMP (pour tester la connectivité)
+        - protocol: icmp
+          remote_ip_prefix: "0.0.0.0/0"
+          direction: ingress
+
+        # Autoriser tout le trafic sortant
+        - protocol: tcp
+          remote_ip_prefix: "0.0.0.0/0"
+          direction: egress
+
+# ============================================================
+# OUTPUTS — Ce qu'on récupère après la création
+# (ces valeurs seront utilisées par les autres templates)
+# ============================================================
+outputs:
+
+  network_id:
+    description: ID du réseau privé créé
+    value: { get_resource: private_network }
+
+  subnet_id:
+    description: ID du sous-réseau créé
+    value: { get_resource: private_subnet }
+
+  router_id:
+    description: ID du routeur créé
+    value: { get_resource: router }
+
+  security_group_id:
+    description: ID du groupe de sécurité créé
+    value: { get_resource: security_group }
+```
+
+---
+
+##  Explication rapide de ce qu'on vient d'écrire
+```
+Ce template crée 5 ressources dans cet ordre :
+
+1. private_network    → Le réseau privé (comme un LAN virtuel)
+2. private_subnet     → La plage d'IP (192.168.1.0/24)
+3. router             → Le routeur connecté à internet
+4. router_interface   → Le câble entre le routeur et le sous-réseau
+5. security_group     → Le pare-feu avec ses règles
+
+Et il expose 4 valeurs en output :
+→ network_id, subnet_id, router_id, security_group_id
+→ Ces IDs seront passés au template des VMs
