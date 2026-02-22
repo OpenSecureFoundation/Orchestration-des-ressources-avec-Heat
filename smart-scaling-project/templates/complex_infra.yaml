@@ -1,0 +1,54 @@
+heat_template_version: 2018-08-31
+description: Architecture Multi-VM (Web + DB) et Multi-Réseau (Front + Back)
+
+resources:
+  # --- RÉSEAUX ---
+  network_front:
+    type: OS::Neutron::Net
+    properties: { name: "net_frontend" }
+
+  network_back:
+    type: OS::Neutron::Net
+    properties: { name: "net_backend" }
+
+  subnet_front:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: network_front }
+      cidr: 10.0.1.0/24
+
+  subnet_back:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: network_back }
+      cidr: 10.0.2.0/24
+
+  # --- INSTANCE 1 : WEB (Cible du Scaling) ---
+  web_instance:
+    type: OS::Nova::Server
+    properties:
+      name: VM_WEB_SCALABLE
+      image: cirros
+      flavor: m1.tiny
+      networks:
+        - network: { get_resource: network_front }
+
+  # --- INSTANCE 2 : DATABASE (Fixe) ---
+  db_instance:
+    type: OS::Nova::Server
+    properties:
+      name: VM_DATABASE
+      image: cirros
+      flavor: m1.small
+      networks:
+        - network: { get_resource: network_back }
+
+  # --- ROUTEUR (Lien entre les réseaux) ---
+  router:
+    type: OS::Neutron::Router
+  
+  router_interface_front:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: subnet_front }
