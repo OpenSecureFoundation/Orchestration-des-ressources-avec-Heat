@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# Base de données
+database/orchestration.db
+*.db
+*.sqlite
+
+# Logs
+logs/*.log
+*.log
+
+# Configuration sensible
+.env
+
+# Templates utilisateur uploadés
+templates_storage/user/*
+!templates_storage/user/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+*~
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
