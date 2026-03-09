@@ -1,7 +1,0 @@
-flask
-flask-cors
-openstacksdk
-python-keystoneclient
-python-novaclient
-python-heatclient
-gnocchiclient
