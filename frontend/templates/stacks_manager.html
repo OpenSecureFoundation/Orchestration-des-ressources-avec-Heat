@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion Stacks - Orchestration Heat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/templates.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="stacks-page">
+  <div class="page-header">
+    <h1>Gestion des Stacks Heat</h1>
+    <button class="btn btn-primary" onclick="showCreateStackModal()">Nouvelle Stack</button>
+  </div>
+
+  <!-- Statistiques -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-total">0</div>
+      <div class="stat-label">Total Stacks</div>
+    </div>
+    <div class="stat-card stat-success">
+      <div class="stat-value" id="stat-complete">0</div>
+      <div class="stat-label">Completees</div>
+    </div>
+    <div class="stat-card stat-warning">
+      <div class="stat-value" id="stat-progress">0</div>
+      <div class="stat-label">En cours</div>
+    </div>
+    <div class="stat-card stat-danger">
+      <div class="stat-value" id="stat-failed">0</div>
+      <div class="stat-label">Echouees</div>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="filters">
+    <input type="text" id="search-stacks" class="form-input" placeholder="Rechercher..." onkeyup="filterStacks()">
+    <button class="btn btn-secondary" onclick="refreshStacks()">Actualiser</button>
+  </div>
+
+  <!-- Table des stacks -->
+  <table class="data-table" id="stacks-table">
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>Statut</th>
+        <th>Template</th>
+        <th>Cree par</th>
+        <th>Date creation</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="stacks-tbody">
+      <tr>
+        <td colspan="6" class="text-center">Chargement...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal creation stack -->
+<div class="modal" id="create-stack-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Nouvelle Stack</h2>
+      <button class="modal-close" onclick="closeCreateStackModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <form id="create-stack-form">
+        <div class="form-group">
+          <label for="stack-name">Nom de la stack</label>
+          <input type="text" id="stack-name" class="form-input" required placeholder="ma-stack-prod">
+        </div>
+
+        <div class="form-group">
+          <label for="stack-template">Template</label>
+          <select id="stack-template" class="form-select" required onchange="loadTemplateParameters()">
+            <option value="">Choisir un template...</option>
+          </select>
+        </div>
+
+        <div id="parameters-section" style="display: none;">
+          <h4>Parametres du template</h4>
+          <div id="parameters-inputs">
+            <!-- Rempli dynamiquement -->
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeCreateStackModal()">Annuler</button>
+          <button type="submit" class="btn btn-primary">Creer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal details stack -->
+<div class="modal" id="stack-details-modal">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="stack-details-title">Details de la Stack</h2>
+      <button class="modal-close" onclick="closeStackDetailsModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Nom</span>
+          <span class="detail-value" id="detail-name">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Statut</span>
+          <span class="detail-value" id="detail-status">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Template</span>
+          <span class="detail-value" id="detail-template">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Date creation</span>
+          <span class="detail-value" id="detail-created">-</span>
+        </div>
+      </div>
+
+      <h3>Ressources</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Type</th>
+            <th>Statut</th>
+            <th>ID</th>
+          </tr>
+        </thead>
+        <tbody id="resources-tbody">
+          <tr>
+            <td colspan="4" class="text-center">Chargement...</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Outputs</h3>
+      <div id="outputs-section">
+        <!-- Rempli dynamiquement -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/stacks.js') }}"></script>
+{% endblock %}

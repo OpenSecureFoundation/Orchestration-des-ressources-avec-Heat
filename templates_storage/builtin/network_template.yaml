@@ -1,0 +1,117 @@
+heat_template_version: 2021-04-16
+
+description: |
+  Template de reseau pour Heat
+  Cree un reseau prive, un subnet, un routeur et les security groups
+
+  Architecture:
+    - Reseau prive isole
+    - Subnet avec DHCP
+    - Routeur connecte au reseau externe
+    - Security groups pour HTTP, SSH, ICMP
+
+parameters:
+  private_cidr:
+    type: string
+    description: CIDR du reseau prive
+    default: 192.168.100.0/24
+
+  external_network:
+    type: string
+    description: Nom du reseau externe
+    default: public
+
+  dns_servers:
+    type: comma_delimited_list
+    description: Serveurs DNS
+    default: [8.8.8.8, 8.8.4.4]
+
+resources:
+  # Reseau prive
+  private_network:
+    type: OS::Neutron::Net
+    properties:
+      name: heat-private-network
+      admin_state_up: true
+
+  # Subnet prive
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      name: heat-private-subnet
+      network: { get_resource: private_network }
+      cidr: { get_param: private_cidr }
+      gateway_ip: 192.168.100.1
+      enable_dhcp: true
+      dns_nameservers: { get_param: dns_servers }
+      allocation_pools:
+        - start: 192.168.100.10
+          end: 192.168.100.250
+
+  # Routeur
+  router:
+    type: OS::Neutron::Router
+    properties:
+      name: heat-router
+      admin_state_up: true
+      external_gateway_info:
+        network: { get_param: external_network }
+
+  # Interface routeur vers subnet prive
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router: { get_resource: router }
+      subnet: { get_resource: private_subnet }
+
+  # Security group pour les instances
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: heat-security-group
+      description: Regles de securite pour les VMs Heat
+      rules:
+        # SSH
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: 0.0.0.0/0
+
+        # HTTP
+        - protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+          remote_ip_prefix: 0.0.0.0/0
+
+        # HTTPS
+        - protocol: tcp
+          port_range_min: 443
+          port_range_max: 443
+          remote_ip_prefix: 0.0.0.0/0
+
+        # Dashboard (port 8080)
+        - protocol: tcp
+          port_range_min: 8080
+          port_range_max: 8080
+          remote_ip_prefix: 0.0.0.0/0
+
+        # ICMP (ping)
+        - protocol: icmp
+          remote_ip_prefix: 0.0.0.0/0
+
+outputs:
+  network_id:
+    description: ID du reseau prive
+    value: { get_resource: private_network }
+
+  subnet_id:
+    description: ID du subnet prive
+    value: { get_resource: private_subnet }
+
+  router_id:
+    description: ID du routeur
+    value: { get_resource: router }
+
+  security_group_id:
+    description: ID du security group
+    value: { get_resource: security_group }

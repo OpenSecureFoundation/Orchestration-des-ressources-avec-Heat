@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion VMs - Orchestration Heat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/templates.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="vms-page">
+  <div class="page-header">
+    <h1>Gestion des Machines Virtuelles</h1>
+    <button class="btn btn-secondary" onclick="refreshVMs()">Actualiser</button>
+  </div>
+
+  <!-- Filtres -->
+  <div class="filters">
+    <input type="text" id="search-vms" class="form-input" placeholder="Rechercher..." onkeyup="filterVMs()">
+
+    <select id="filter-status" class="form-select" onchange="filterVMs()">
+      <option value="">Tous les statuts</option>
+      <option value="ACTIVE">Active</option>
+      <option value="SHUTOFF">Eteinte</option>
+      <option value="RESIZE">Resize</option>
+      <option value="ERROR">Erreur</option>
+    </select>
+  </div>
+
+  <!-- Table des VMs -->
+  <table class="data-table" id="vms-table">
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>Statut</th>
+        <th>Flavor</th>
+        <th>vCPUs</th>
+        <th>RAM</th>
+        <th>IP Publique</th>
+        <th>IP Privee</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="vms-tbody">
+      <tr>
+        <td colspan="8" class="text-center">Chargement...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal details VM -->
+<div class="modal" id="vm-details-modal">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="vm-details-title">Details de la VM</h2>
+      <button class="modal-close" onclick="closeVMDetailsModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-grid">
+        <div class="detail-item">
+          <span class="detail-label">Nom</span>
+          <span class="detail-value" id="vm-detail-name">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Statut</span>
+          <span class="detail-value" id="vm-detail-status">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Flavor</span>
+          <span class="detail-value" id="vm-detail-flavor">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">vCPUs</span>
+          <span class="detail-value" id="vm-detail-vcpus">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">RAM</span>
+          <span class="detail-value" id="vm-detail-ram">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Disque</span>
+          <span class="detail-value" id="vm-detail-disk">-</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Cree le</span>
+          <span class="detail-value" id="vm-detail-created">-</span>
+        </div>
+      </div>
+
+      <h3>Adresses reseau</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Reseau</th>
+            <th>Type</th>
+            <th>Adresse</th>
+          </tr>
+        </thead>
+        <tbody id="vm-addresses-tbody">
+          <!-- Rempli dynamiquement -->
+        </tbody>
+      </table>
+
+      <h3>Actions rapides</h3>
+      <div class="action-buttons">
+        <button class="btn btn-success" onclick="startVM(currentVMId)">Demarrer</button>
+        <button class="btn btn-warning" onclick="stopVM(currentVMId)">Arreter</button>
+        <button class="btn btn-secondary" onclick="rebootVM(currentVMId, false)">Reboot Soft</button>
+        <button class="btn btn-secondary" onclick="rebootVM(currentVMId, true)">Reboot Hard</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal resize VM -->
+<div class="modal" id="resize-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Redimensionner la VM</h2>
+      <button class="modal-close" onclick="closeResizeModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <p>VM actuelle: <strong id="resize-vm-name"></strong></p>
+      <p>Flavor actuel: <strong id="resize-current-flavor"></strong></p>
+
+      <form id="resize-form">
+        <div class="form-group">
+          <label for="new-flavor">Nouveau flavor</label>
+          <select id="new-flavor" class="form-select" required>
+            <option value="">Choisir...</option>
+            <option value="m1.small">m1.small (1 vCPU, 2 GB RAM)</option>
+            <option value="m1.medium">m1.medium (2 vCPU, 4 GB RAM)</option>
+            <option value="m1.large">m1.large (4 vCPU, 8 GB RAM)</option>
+          </select>
+        </div>
+
+        <div class="alert alert-info">
+          La VM sera arretee pendant le resize. L'operation prend 2-5 minutes.
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeResizeModal()">Annuler</button>
+          <button type="submit" class="btn btn-primary">Redimensionner</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/vms.js') }}"></script>
+{% endblock %}

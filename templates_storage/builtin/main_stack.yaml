@@ -1,0 +1,79 @@
+heat_template_version: 2021-04-16
+
+description: >
+  Stack complete avec reseau prive, VM Ubuntu et agent de metriques.
+  Template principal qui orchestre tous les composants.
+
+parameters:
+  key_name:
+    type: string
+    description: Nom de la keypair SSH pour acceder a l'instance
+    default: heat-keypair
+
+  image_name:
+    type: string
+    description: Nom de l'image Ubuntu a utiliser
+    default: ubuntu-22.04
+
+  flavor_name:
+    type: string
+    description: Flavor de l'instance
+    default: m1.small
+
+  public_network:
+    type: string
+    description: Reseau public pour la gateway
+    default: public
+
+  dashboard_ip:
+    type: string
+    description: IP du dashboard pour l'agent de metriques
+    default: 192.168.44.130
+
+resources:
+  # 1. RESEAU PRIVE
+  private_network:
+    type: network_template.yaml
+    properties:
+      network_name: heat-private-network
+      subnet_name: heat-private-subnet
+      subnet_cidr: 192.168.100.0/24
+      public_network: { get_param: public_network }
+
+  # 2. SECURITY GROUP
+  security_group:
+    type: security_group.yaml
+    properties:
+      group_name: heat-security-group
+
+  # 3. MACHINE VIRTUELLE
+  server:
+    type: vm_template.yaml
+    depends_on:
+      - private_network
+      - security_group
+    properties:
+      server_name: heat-vm-01
+      image_name: { get_param: image_name }
+      flavor_name: { get_param: flavor_name }
+      key_name: { get_param: key_name }
+      network_id: { get_attr: [private_network, network_id] }
+      security_group: { get_attr: [security_group, security_group_id] }
+      dashboard_ip: { get_param: dashboard_ip }
+
+outputs:
+  server_id:
+    description: ID du serveur cree
+    value: { get_attr: [server, server_id] }
+
+  server_ip:
+    description: IP privee du serveur
+    value: { get_attr: [server, server_ip] }
+
+  network_id:
+    description: ID du reseau prive
+    value: { get_attr: [private_network, network_id] }
+
+  security_group_id:
+    description: ID du security group
+    value: { get_attr: [security_group, security_group_id] }

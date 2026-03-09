@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring - Orchestration Heat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+  <div class="page-header">
+    <h1>Monitoring Temps Reel</h1>
+    <div class="header-actions">
+      <select id="server-selector" class="form-select">
+        <option value="">Chargement...</option>
+      </select>
+      <button class="btn btn-primary" onclick="refreshServers()">Actualiser</button>
+    </div>
+  </div>
+
+  <!-- Informations serveur -->
+  <div class="server-info-card" id="server-info" style="display: none;">
+    <h2>Serveur : <span id="server-name">-</span></h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Statut</span>
+        <span class="info-value" id="server-status">-</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Flavor</span>
+        <span class="info-value" id="server-flavor">-</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">vCPUs</span>
+        <span class="info-value" id="server-vcpus">-</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">RAM</span>
+        <span class="info-value" id="server-ram">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selection des metriques a surveiller -->
+  <div class="metrics-config-card" id="metrics-config" style="display: none;">
+    <h3>Metriques surveillees</h3>
+    <div class="metrics-checkboxes" id="metrics-checkboxes">
+      <!-- Rempli dynamiquement -->
+    </div>
+  </div>
+
+  <!-- Graphiques metriques -->
+  <div class="metrics-grid" id="metrics-grid" style="display: none;">
+    <!-- Rempli dynamiquement selon les metriques selectionnees -->
+  </div>
+
+  <!-- Configuration politique de scaling -->
+  <div class="policy-card" id="policy-card" style="display: none;">
+    <h3>Politique de Scaling</h3>
+
+    <div class="form-group">
+      <label for="policy-metric">Metrique de declenchement</label>
+      <select id="policy-metric" class="form-select">
+        <!-- Rempli dynamiquement -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="threshold-up">Seuil Scale Up (%)</label>
+      <input type="range" id="threshold-up" min="50" max="100" value="80" class="slider">
+      <span id="threshold-up-value">80</span>%
+    </div>
+
+    <div class="form-group">
+      <label for="threshold-down">Seuil Scale Down (%)</label>
+      <input type="range" id="threshold-down" min="0" max="50" value="20" class="slider">
+      <span id="threshold-down-value">20</span>%
+    </div>
+
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="policy-enabled" checked>
+        Activer le scaling automatique
+      </label>
+    </div>
+
+    <button class="btn btn-primary" onclick="savePolicyConfig()">Sauvegarder</button>
+  </div>
+
+  <!-- Historique evenements -->
+  <div class="events-card" id="events-card" style="display: none;">
+    <h3>Historique des Evenements</h3>
+    <div class="events-list" id="events-list">
+      <p class="text-muted">Aucun evenement</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+<script src="{{ url_for('static', filename='js/metrics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
