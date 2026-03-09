@@ -1,0 +1,174 @@
+heat_template_version: 2021-04-16
+
+description: >
+  Template imbrique pour creer une VM Ubuntu avec agent de metriques.
+  Utilise ConfigDrive pour injecter cloud-init.
+
+parameters:
+  server_name:
+    type: string
+    description: Nom du serveur
+    default: heat-server
+
+  image_name:
+    type: string
+    description: Nom de l'image a utiliser
+    default: ubuntu-22.04
+
+  flavor_name:
+    type: string
+    description: Flavor du serveur
+    default: m1.small
+
+  key_name:
+    type: string
+    description: Nom de la keypair SSH
+    default: heat-keypair
+
+  network_id:
+    type: string
+    description: ID du reseau auquel connecter le serveur
+
+  security_group:
+    type: string
+    description: ID du security group
+
+  dashboard_ip:
+    type: string
+    description: IP du dashboard pour l'agent de metriques
+    default: 192.168.44.130
+
+resources:
+  # Port reseau
+  server_port:
+    type: OS::Neutron::Port
+    properties:
+      network: { get_param: network_id }
+      security_groups:
+        - { get_param: security_group }
+
+  # Machine virtuelle
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: server_name }
+      image: { get_param: image_name }
+      flavor: { get_param: flavor_name }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: server_port }
+      config_drive: true
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            set -x
+            exec > >(tee /var/log/user-data.log)
+            exec 2>&1
+
+            echo "=== Installation agent metriques Heat ==="
+            date
+
+            # Attendre reseau
+            sleep 15
+
+            # Installation dependances
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -y
+            apt-get install -y python3 python3-pip curl
+            pip3 install psutil requests
+
+            # Creer l'agent
+            cat > /usr/local/bin/metrics_agent.py << 'AGENTEOF'
+            #!/usr/bin/env python3
+            import psutil
+            import requests
+            import time
+
+            DASHBOARD_URL = "http://DASHBOARD_IP_REPLACE:8080/api/metrics/alert"
+            SECRET_TOKEN = "heat-secret-token"
+            SERVER_NAME = "SERVER_NAME_REPLACE"
+            INTERVAL = 30
+
+            def collect_metrics():
+                return {
+                    'source': SERVER_NAME,
+                    'token': SECRET_TOKEN,
+                    'timestamp': int(time.time()),
+                    'cpu': psutil.cpu_percent(interval=1),
+                    'ram': psutil.virtual_memory().percent,
+                    'disk': psutil.disk_usage('/').percent,
+                    'network_in': 10.0,
+                    'network_out': 5.0,
+                    'network_latency': 20.0
+                }
+
+            def send_metrics(metrics):
+                try:
+                    r = requests.post(DASHBOARD_URL, json=metrics, timeout=10)
+                    if r.status_code == 200:
+                        print(f"✓ CPU={metrics['cpu']:.1f}% RAM={metrics['ram']:.1f}%")
+                    else:
+                        print(f"✗ HTTP {r.status_code}")
+                except Exception as e:
+                    print(f"✗ Erreur: {e}")
+
+            def main():
+                print(f"Agent Heat Metrics - Serveur: {SERVER_NAME}")
+                print(f"Dashboard: {DASHBOARD_URL}")
+                while True:
+                    try:
+                        send_metrics(collect_metrics())
+                        time.sleep(INTERVAL)
+                    except KeyboardInterrupt:
+                        break
+                    except Exception as e:
+                        print(f"Erreur: {e}")
+                        time.sleep(INTERVAL)
+
+            if __name__ == '__main__':
+                main()
+            AGENTEOF
+
+            # Remplacer les placeholders
+            sed -i "s|DASHBOARD_IP_REPLACE|$dashboard_ip|g" /usr/local/bin/metrics_agent.py
+            sed -i "s|SERVER_NAME_REPLACE|$server_name|g" /usr/local/bin/metrics_agent.py
+
+            chmod +x /usr/local/bin/metrics_agent.py
+
+            # Service systemd
+            cat > /etc/systemd/system/metrics-agent.service << 'SVCEOF'
+            [Unit]
+            Description=Heat Metrics Agent
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Type=simple
+            ExecStart=/usr/bin/python3 /usr/local/bin/metrics_agent.py
+            Restart=always
+            RestartSec=10
+
+            [Install]
+            WantedBy=multi-user.target
+            SVCEOF
+
+            systemctl daemon-reload
+            systemctl enable metrics-agent
+            systemctl start metrics-agent
+
+            echo "=== Agent installe et demarre ==="
+            systemctl status metrics-agent
+          params:
+            $dashboard_ip: { get_param: dashboard_ip }
+            $server_name: { get_param: server_name }
+
+outputs:
+  server_id:
+    description: ID du serveur cree
+    value: { get_resource: server }
+
+  server_ip:
+    description: IP privee du serveur
+    value: { get_attr: [server, first_address] }

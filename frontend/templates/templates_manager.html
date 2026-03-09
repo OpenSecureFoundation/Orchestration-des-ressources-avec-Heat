@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Gestion Templates - Orchestration Heat{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/templates.css') }}">
+<!-- CodeMirror pour editeur YAML -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="templates-page">
+  <div class="page-header">
+    <h1>Gestion des Templates Heat</h1>
+    <button class="btn btn-primary" onclick="showCreateModal()">Nouveau Template</button>
+  </div>
+
+  <!-- Tabs pour les differentes methodes -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="list">Mes Templates</button>
+    <button class="tab-btn" data-tab="import">Importer depuis Git</button>
+    <button class="tab-btn" data-tab="upload">Upload Fichier</button>
+  </div>
+
+  <!-- Tab: Liste des templates -->
+  <div class="tab-content active" id="tab-list">
+    <div class="filters">
+      <select id="filter-type" class="form-select" onchange="filterTemplates()">
+        <option value="">Tous les types</option>
+        <option value="builtin">Builtin</option>
+        <option value="git">Git</option>
+        <option value="uploaded">Uploaded</option>
+        <option value="created">Crees</option>
+      </select>
+
+      <input type="text" id="search-templates" class="form-input" placeholder="Rechercher..."
+        onkeyup="filterTemplates()">
+    </div>
+
+    <table class="data-table" id="templates-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Cree par</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="templates-tbody">
+        <tr>
+          <td colspan="6" class="text-center">Chargement...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tab: Import Git -->
+  <div class="tab-content" id="tab-import">
+    <div class="import-card">
+      <h3>Importer depuis un depot Git</h3>
+      <form id="git-import-form">
+        <div class="form-group">
+          <label for="git-url">URL du depot</label>
+          <input type="text" id="git-url" class="form-input" placeholder="https://github.com/user/repo" required>
+          <small>Formats supportes: GitHub, GitLab, Bitbucket</small>
+        </div>
+
+        <div class="form-group">
+          <label for="git-branch">Branche</label>
+          <input type="text" id="git-branch" class="form-input" value="main" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Importer</button>
+      </form>
+
+      <div id="import-results" style="display: none; margin-top: 20px;">
+        <h4>Resultats de l'import</h4>
+        <div id="import-success-list"></div>
+        <div id="import-error-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Upload -->
+  <div class="tab-content" id="tab-upload">
+    <div class="upload-card">
+      <h3>Upload un fichier template</h3>
+      <form id="upload-form" enctype="multipart/form-data">
+        <div class="file-upload-area" id="drop-zone">
+          <input type="file" id="file-input" accept=".yaml,.yml" hidden>
+          <p>Glissez un fichier YAML ici ou cliquez pour selectionner</p>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+            Choisir un fichier
+          </button>
+        </div>
+
+        <div id="file-info" style="display: none; margin-top: 20px;">
+          <p>Fichier: <strong id="file-name"></strong></p>
+          <button type="submit" class="btn btn-primary">Upload</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal creation/edition template -->
+<div class="modal" id="template-modal">
+  <div class="modal-content modal-large">
+    <div class="modal-header">
+      <h2 id="modal-title">Nouveau Template</h2>
+      <button class="modal-close" onclick="closeTemplateModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <form id="template-form">
+        <div class="form-group">
+          <label for="template-name">Nom</label>
+          <input type="text" id="template-name" class="form-input" required>
+        </div>
+
+        <div class="form-group">
+          <label for="template-description">Description</label>
+          <textarea id="template-description" class="form-input" rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="template-content">Contenu YAML</label>
+          <textarea id="template-content" class="code-editor"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="template-public">
+            Rendre public (accessible a tous)
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeTemplateModal()">Annuler</button>
+          <button type="submit" class="btn btn-primary">Sauvegarder</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js"></script>
+<script src="{{ url_for('static', filename='js/templates.js') }}"></script>
+{% endblock %}

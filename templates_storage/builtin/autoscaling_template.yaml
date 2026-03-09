@@ -1,0 +1,84 @@
+heat_template_version: 2021-04-16
+
+description: |
+  Template de configuration du scaling automatique
+  Definit les politiques et Custom Resources pour le scaling vertical
+
+  Note: Ce template utilise notre systeme de scaling personnalise
+  via l'adaptateur de metriques externe
+
+parameters:
+  server_id:
+    type: string
+    description: ID du serveur a surveiller
+
+  metric_type:
+    type: string
+    description: Type de metrique a surveiller
+    default: cpu
+    constraints:
+      - allowed_values:
+          [cpu, ram, disk, network_in, network_out, network_latency]
+
+  scale_up_threshold:
+    type: number
+    description: Seuil de declenchement du scale up
+    default: 80
+    constraints:
+      - range: { min: 50, max: 100 }
+
+  scale_down_threshold:
+    type: number
+    description: Seuil de declenchement du scale down
+    default: 20
+    constraints:
+      - range: { min: 0, max: 50 }
+
+  cooldown_seconds:
+    type: number
+    description: Periode de cooldown entre deux scaling
+    default: 120
+    constraints:
+      - range: { min: 60, max: 600 }
+
+  evaluation_periods:
+    type: number
+    description: Nombre de periodes d'evaluation avant action
+    default: 1
+    constraints:
+      - range: { min: 1, max: 5 }
+
+resources:
+  # Configuration stockee comme metadata
+  # Le dashboard lit cette configuration via l'API Heat
+  scaling_config:
+    type: OS::Heat::Value
+    properties:
+      type: json
+      value:
+        server_id: { get_param: server_id }
+        metric_type: { get_param: metric_type }
+        scale_up_threshold: { get_param: scale_up_threshold }
+        scale_down_threshold: { get_param: scale_down_threshold }
+        cooldown_seconds: { get_param: cooldown_seconds }
+        evaluation_periods: { get_param: evaluation_periods }
+        enabled: true
+
+outputs:
+  config:
+    description: Configuration de scaling
+    value: { get_attr: [scaling_config, value] }
+
+  metric_monitored:
+    description: Metrique surveillee
+    value: { get_param: metric_type }
+
+  thresholds:
+    description: Seuils configures
+    value:
+      str_replace:
+        template: "Scale UP si METRIC > UP% | Scale DOWN si METRIC < DOWN%"
+        params:
+          METRIC: { get_param: metric_type }
+          UP: { get_param: scale_up_threshold }
+          DOWN: { get_param: scale_down_threshold }

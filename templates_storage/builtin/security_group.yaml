@@ -1,0 +1,65 @@
+heat_template_version: 2021-04-16
+
+description: >
+  Template imbrique pour creer un security group avec regles pour SSH, HTTP, et agent.
+
+parameters:
+  group_name:
+    type: string
+    description: Nom du security group
+    default: default-security-group
+
+resources:
+  security_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: { get_param: group_name }
+      description: Security group pour les instances Heat
+      rules:
+        # SSH (port 22)
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+          remote_ip_prefix: 0.0.0.0/0
+          direction: ingress
+
+        # HTTP (port 80)
+        - protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+          remote_ip_prefix: 0.0.0.0/0
+          direction: ingress
+
+        # Agent metriques (port 8080)
+        - protocol: tcp
+          port_range_min: 8080
+          port_range_max: 8080
+          remote_ip_prefix: 0.0.0.0/0
+          direction: ingress
+
+        # ICMP (ping)
+        - protocol: icmp
+          remote_ip_prefix: 0.0.0.0/0
+          direction: ingress
+
+        # Tout le trafic sortant
+        - protocol: tcp
+          port_range_min: 1
+          port_range_max: 65535
+          remote_ip_prefix: 0.0.0.0/0
+          direction: egress
+
+        - protocol: udp
+          port_range_min: 1
+          port_range_max: 65535
+          remote_ip_prefix: 0.0.0.0/0
+          direction: egress
+
+        - protocol: icmp
+          remote_ip_prefix: 0.0.0.0/0
+          direction: egress
+
+outputs:
+  security_group_id:
+    description: ID du security group cree
+    value: { get_resource: security_group }
