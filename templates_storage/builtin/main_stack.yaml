@@ -1,0 +1,103 @@
+heat_template_version: 2021-04-16
+description: >
+  Stack complete utilisant le reseau prive EXISTANT (private-network),
+  avec security group, VM Ubuntu 22.04 et agent de metriques auto-installe.
+  Compatible avec les environnements tenant_network_types=flat.
+
+parameters:
+  stack_name_prefix:
+    type: string
+    description: Prefixe pour nommer les ressources
+    default: heat
+
+  key_name:
+    type: string
+    description: Paire de cles SSH pour acceder a la VM
+    default: heat-keypair
+    constraints:
+      - custom_constraint: nova.keypair
+
+  image_name:
+    type: string
+    description: Image a utiliser pour la VM
+    default: ubuntu-22.04
+    constraints:
+      - custom_constraint: glance.image
+
+  flavor_name:
+    type: string
+    description: Flavor de la VM
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+
+  public_network:
+    type: string
+    description: Reseau public externe (pour IP flottante)
+    default: public-network
+    constraints:
+      - custom_constraint: neutron.network
+
+  private_network:
+    type: string
+    description: Reseau prive EXISTANT a utiliser (ne sera pas cree)
+    default: private-network
+    constraints:
+      - custom_constraint: neutron.network
+
+  dashboard_ip:
+    type: string
+    description: IP du dashboard pour l'agent de metriques
+    default: 192.168.44.134
+
+resources:
+
+  # Security group : ouvre SSH, HTTP, ICMP et port metriques
+  security:
+    type: security_group.yaml
+    properties:
+      security_group_name:
+        str_replace:
+          template: PREFIX-sg
+          params:
+            PREFIX: { get_param: stack_name_prefix }
+
+  # VM connectee au reseau prive existant
+  machine_virtuelle:
+    type: vm_template.yaml
+    depends_on:
+      - security
+    properties:
+      server_name:
+        str_replace:
+          template: PREFIX-vm
+          params:
+            PREFIX: { get_param: stack_name_prefix }
+      image_name: { get_param: image_name }
+      flavor_name: { get_param: flavor_name }
+      key_name: { get_param: key_name }
+      network_id: { get_param: private_network }
+      security_group_id: { get_attr: [security, security_group_id] }
+      public_network: { get_param: public_network }
+      dashboard_ip: { get_param: dashboard_ip }
+
+outputs:
+  server_id:
+    description: ID Nova de la VM deployee
+    value: { get_attr: [machine_virtuelle, server_id] }
+
+  server_ip_private:
+    description: IP privee de la VM
+    value: { get_attr: [machine_virtuelle, server_ip_private] }
+
+  server_ip_floating:
+    description: IP flottante (publique) de la VM
+    value: { get_attr: [machine_virtuelle, server_ip_floating] }
+
+  instructions:
+    description: Comment se connecter a la VM
+    value:
+      str_replace:
+        template: "ssh ubuntu@FLOATING_IP -i <votre_cle>"
+        params:
+          FLOATING_IP: { get_attr: [machine_virtuelle, server_ip_floating] }

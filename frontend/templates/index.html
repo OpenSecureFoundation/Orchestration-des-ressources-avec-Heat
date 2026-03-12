@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Heat Orchestration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p class="page-subtitle">Vue d'ensemble de l'infrastructure</p>
+</div>
+
+<div class="cards-grid">
+    <div class="card card-stat">
+        <div class="card-icon card-icon-blue">S</div>
+        <div class="card-body">
+            <div class="stat-value" id="nb-stacks">--</div>
+            <div class="stat-label">Stacks actives</div>
+        </div>
+    </div>
+    <div class="card card-stat">
+        <div class="card-icon card-icon-green">V</div>
+        <div class="card-body">
+            <div class="stat-value" id="nb-vms">--</div>
+            <div class="stat-label">VMs en cours</div>
+        </div>
+    </div>
+    <div class="card card-stat">
+        <div class="card-icon card-icon-orange">M</div>
+        <div class="card-body">
+            <div class="stat-value" id="nb-metriques">--</div>
+            <div class="stat-label">VMs monitorees</div>
+        </div>
+    </div>
+    <div class="card card-stat">
+        <div class="card-icon card-icon-purple">P</div>
+        <div class="card-body">
+            <div class="stat-value" id="nb-politiques">--</div>
+            <div class="stat-label">Politiques scaling</div>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <div class="card-header">
+            <h2>Stacks recentes</h2>
+            <a href="/stacks" class="btn btn-sm btn-outline">Voir tout</a>
+        </div>
+        <div class="card-body" id="liste-stacks-recentes">
+            <div class="loading">Chargement...</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Metriques globales</h2>
+        </div>
+        <div class="card-body" id="metriques-globales">
+            <div class="loading">Chargement...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

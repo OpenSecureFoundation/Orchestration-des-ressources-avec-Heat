@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Templates - Heat Orchestration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Gestion des Templates</h1>
+    <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-outline" onclick="chargerTemplates()">&#8635; Actualiser</button>
+        <button class="btn btn-primary" onclick="ouvrirModalCreation()">+ Nouveau Template</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div id="liste-templates"><div class="loading">Chargement des templates...</div></div>
+    </div>
+</div>
+
+<!-- ===== MODAL CREATION TEMPLATE ===== -->
+<div id="modal-creation-template" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-creation-template')"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>Créer un nouveau Template</h3>
+            <button class="modal-close" onclick="fermerModal('modal-creation-template')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Onglets creation / upload -->
+            <div class="tabs" style="margin-bottom:1.25rem;">
+                <button class="tab-btn active" id="tab-btn-editeur" onclick="switchCreationMode('editeur',this)">
+                    ✏️ Éditeur en ligne
+                </button>
+                <button class="tab-btn" id="tab-btn-upload" onclick="switchCreationMode('upload',this)">
+                    📁 Upload fichier YAML
+                </button>
+            </div>
+
+            <!-- Mode éditeur -->
+            <div id="mode-editeur">
+                <div class="form-group">
+                    <label>Nom du template *</label>
+                    <input type="text" id="tmpl-nom" class="form-input" placeholder="mon-template" />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="tmpl-desc" class="form-input" placeholder="Description courte..." />
+                </div>
+                <div class="form-group">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                        <label style="margin:0;">Contenu YAML *</label>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button class="btn btn-sm btn-outline" onclick="insererSquelette('minimal')">Squelette minimal</button>
+                            <button class="btn btn-sm btn-outline" onclick="insererSquelette('agent')">Squelette + Agent métriques</button>
+                        </div>
+                    </div>
+                    <textarea id="tmpl-contenu" class="form-input yaml-editor"
+                        placeholder="Collez ou écrivez votre template Heat YAML ici..."></textarea>
+                </div>
+
+                <!-- Conseil agent métriques -->
+                <div class="alert-conseil">
+                    <div class="conseil-titre">💡 Comment intégrer l'agent de métriques dans votre template</div>
+                    <div class="conseil-corps">
+                        Pour que votre VM soit monitorée automatiquement, ajoutez ce bloc dans la section
+                        <code>user_data</code> de votre ressource <code>OS::Nova::Server</code> :<br><br>
+                        <pre class="code-inline">user_data_format: RAW
+user_data:
+  str_replace:
+    template: |
+      #!/bin/bash
+      apt-get install -y python3-pip
+      pip3 install psutil requests
+      cat > /usr/local/bin/metrics-agent.py &lt;&lt; 'AGENT'
+      import psutil, requests, time, socket
+      SERVER_ID = socket.gethostname()
+      DASHBOARD = "http://DASHBOARD_IP:8080"
+      while True:
+          try:
+              requests.post(f"{DASHBOARD}/api/metrics/alert", json={
+                  "server_id": SERVER_ID,
+                  "server_name": SERVER_ID,
+                  "cpu": psutil.cpu_percent(interval=1),
+                  "ram": psutil.virtual_memory().percent,
+                  "disk": psutil.disk_usage('/').percent,
+                  "network": {"bytes_sent": 0, "bytes_recv": 0}
+              }, timeout=5)
+          except: pass
+          time.sleep(30)
+      AGENT
+      python3 /usr/local/bin/metrics-agent.py &amp;
+    params:
+      DASHBOARD_IP: { get_param: dashboard_ip }</pre>
+                        Ajoutez également <code>dashboard_ip</code> dans la section <code>parameters</code>.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode upload -->
+            <div id="mode-upload" class="hidden">
+                <div class="form-group">
+                    <label>Nom du template *</label>
+                    <input type="text" id="tmpl-upload-nom" class="form-input" placeholder="Mon template" />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="tmpl-upload-desc" class="form-input" placeholder="Description..." />
+                </div>
+                <div class="form-group">
+                    <label>Fichier YAML</label>
+                    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('tmpl-fichier').click()">
+                        <div class="upload-icon">📄</div>
+                        <div id="upload-label">Cliquez ou glissez un fichier .yaml / .yml</div>
+                    </div>
+                    <input type="file" id="tmpl-fichier" accept=".yaml,.yml" style="display:none"
+                        onchange="previewFichier(this)" />
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-creation-template')">Annuler</button>
+            <button class="btn btn-primary" onclick="sauvegarderTemplate()">Créer le template</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MODAL VISUALISATION TEMPLATE ===== -->
+<div id="modal-visualisation" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-visualisation')"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3 id="visu-titre">Template</h3>
+            <button class="modal-close" onclick="fermerModal('modal-visualisation')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <pre id="visu-contenu" class="yaml-viewer">Chargement...</pre>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-visualisation')">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CONFIRMATION SUPPRESSION -->
+<div id="modal-confirm-suppr-tmpl" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-confirm-suppr-tmpl')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirmer la suppression</h3>
+            <button class="modal-close" onclick="fermerModal('modal-confirm-suppr-tmpl')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-danger">
+                Supprimer le template <strong id="confirm-tmpl-nom"></strong> ? Cette action est irréversible.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-confirm-suppr-tmpl')">Annuler</button>
+            <button class="btn btn-danger" onclick="confirmerSuppressionTemplate()">Supprimer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/templates.js') }}"></script>
+{% endblock %}

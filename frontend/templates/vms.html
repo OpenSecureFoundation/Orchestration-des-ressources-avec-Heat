@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}VMs - Heat Orchestration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Machines Virtuelles</h1>
+    <button class="btn btn-outline" onclick="chargerVMs()">&#8635; Actualiser</button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div id="tableau-vms"><div class="loading">Chargement des VMs...</div></div>
+    </div>
+</div>
+
+<!-- PANNEAU DETAILS VM (slide-in depuis la droite) -->
+<div id="panneau-overlay" class="panneau-overlay hidden" onclick="fermerPanneau()"></div>
+<div id="panneau-details" class="side-panel hidden">
+    <div class="side-panel-header">
+        <h3 id="details-vm-titre">Détails VM</h3>
+        <button class="btn-icon" onclick="fermerPanneau()">&#10005;</button>
+    </div>
+    <div class="side-panel-body">
+        <div class="tabs" style="margin-bottom:1rem;">
+            <button class="tab-btn active" id="tab-btn-info"    onclick="afficherOngletVM('info',this)">Informations</button>
+            <button class="tab-btn"         id="tab-btn-scaling" onclick="afficherOngletVM('scaling',this)">Historique Scaling</button>
+            <button class="tab-btn"         id="tab-btn-console" onclick="afficherOngletVM('console',this)">Console</button>
+        </div>
+        <div id="vm-tab-info">    <div id="details-vm-contenu"><div class="loading">Chargement...</div></div></div>
+        <div id="vm-tab-scaling" class="hidden"><div id="details-scaling-contenu"><div class="loading">Chargement...</div></div></div>
+        <div id="vm-tab-console" class="hidden">
+            <pre id="console-output" class="console-output">Cliquez sur Rafraichir pour charger les logs...</pre>
+            <button class="btn btn-sm btn-outline" style="margin-top:0.5rem" onclick="rechargerConsole()">&#8635; Rafraichir</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL RESIZE -->
+<div id="modal-resize" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-resize')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Redimensionner la VM</h3>
+            <button class="modal-close" onclick="fermerModal('modal-resize')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:0.75rem;">VM : <strong id="resize-vm-name"></strong></p>
+            <div style="margin-bottom:1rem;">
+                <span style="color:#64748b;font-size:0.85rem;">Flavor actuelle : </span>
+                <strong id="resize-flavor-actuel" style="color:#2563eb;"></strong>
+            </div>
+            <div class="form-group">
+                <label>Nouveau flavor</label>
+                <select id="resize-nouveau-flavor" class="form-input">
+                    <option value="m1.small">m1.small — 1 vCPU / 2 Go RAM</option>
+                    <option value="m1.medium">m1.medium — 2 vCPU / 4 Go RAM</option>
+                    <option value="m1.large">m1.large — 4 vCPU / 8 Go RAM</option>
+                </select>
+            </div>
+            <div class="alert alert-warning">&#9888; La VM sera redémarrée. L'opération peut prendre 2-5 minutes en arrière-plan.</div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-resize')">Annuler</button>
+            <button class="btn btn-primary" onclick="confirmerResize()">Confirmer le resize</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CONFIRMATION SUPPRESSION -->
+<div id="modal-confirm-suppr-vm" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-confirm-suppr-vm')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirmer la suppression</h3>
+            <button class="modal-close" onclick="fermerModal('modal-confirm-suppr-vm')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-danger">
+                Vous êtes sur le point de supprimer <strong id="confirm-vm-nom"></strong>. Cette action est <strong>irréversible</strong>.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-confirm-suppr-vm')">Annuler</button>
+            <button class="btn btn-danger" onclick="confirmerSuppressionVM()">Supprimer définitivement</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vms.js') }}?v=20260311"></script>
+{% endblock %}

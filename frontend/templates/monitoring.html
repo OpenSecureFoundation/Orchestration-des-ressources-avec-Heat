@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Monitoring - Heat Orchestration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Monitoring Temps Reel</h1>
+</div>
+
+<div class="monitoring-layout">
+    <!-- Panneau gauche : selection VM + config scaling -->
+    <div class="monitoring-sidebar">
+        <div class="card">
+            <div class="card-header"><h3>Selectionner une VM</h3></div>
+            <div class="card-body">
+                <select id="vm-select" class="form-input" onchange="selectionnerVM(this.value)">
+                    <option value="">-- Choisir une VM --</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card" id="card-scaling" style="display:none">
+            <div class="card-header"><h3>Politique de Scaling</h3></div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label>Metrique surveillee</label>
+                    <select id="scaling-metric" class="form-input">
+                        <option value="cpu">CPU (%)</option>
+                        <option value="ram">RAM (%)</option>
+                        <option value="disk">Disque (%)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Seuil Scale Up (%)</label>
+                    <input type="number" id="scaling-threshold-up" class="form-input" value="80" min="1" max="100" />
+                </div>
+                <div class="form-group">
+                    <label>Seuil Scale Down (%)</label>
+                    <input type="number" id="scaling-threshold-down" class="form-input" value="20" min="1" max="100" />
+                </div>
+                <div class="form-group">
+                    <label>Cooldown (secondes)</label>
+                    <input type="number" id="scaling-cooldown" class="form-input" value="60" min="10" />
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" onclick="sauvegarderPolitique()">Activer</button>
+                    <button class="btn btn-danger" onclick="supprimerPolitique()">Desactiver</button>
+                </div>
+                <div id="politique-status"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Zone principale : graphiques -->
+    <div class="monitoring-main">
+        <div id="monitoring-placeholder" class="card placeholder-card">
+            <p>Selectionnez une VM pour afficher les metriques en temps reel.</p>
+        </div>
+
+        <div id="monitoring-charts" style="display:none">
+            <div class="vm-info-bar" id="vm-info-bar"></div>
+
+            <div class="charts-grid">
+                <div class="card">
+                    <div class="card-header"><h3>CPU (%)</h3><span id="cpu-value" class="metric-current">--</span></div>
+                    <div class="card-body"><canvas id="chart-cpu"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>RAM (%)</h3><span id="ram-value" class="metric-current">--</span></div>
+                    <div class="card-body"><canvas id="chart-ram"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>Disque (%)</h3><span id="disk-value" class="metric-current">--</span></div>
+                    <div class="card-body"><canvas id="chart-disk"></canvas></div>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3>Reseau (Ko/s)</h3></div>
+                    <div class="card-body"><canvas id="chart-network"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
+{% endblock %}
