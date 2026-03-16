@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Heat Orchestration{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20260312">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="brand-icon">&#9776;</span>
+            <span class="brand-text">Heat Orchestration</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="/" class="nav-link {% if request.endpoint == 'main.index' %}active{% endif %}">Dashboard</a></li>
+            <li><a href="/stacks" class="nav-link {% if request.endpoint == 'main.stacks' %}active{% endif %}">Stacks</a></li>
+            <li><a href="/vms" class="nav-link {% if request.endpoint == 'main.vms' %}active{% endif %}">VMs</a></li>
+            <li><a href="/monitoring" class="nav-link {% if request.endpoint == 'main.monitoring' %}active{% endif %}">Monitoring</a></li>
+            <li><a href="/templates" class="nav-link {% if request.endpoint == 'main.templates' %}active{% endif %}">Templates</a></li>
+        </ul>
+        <div id="connexion-status" class="status-badge status-unknown">Connexion...</div>
+    </nav>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='js/api.js') }}?v=20260312"></script>
+    {% block scripts %}{% endblock %}
+
+    <script>
+        // Verification de la connexion OpenStack au chargement
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const data = await api.get('/api/status');
+                const badge = document.getElementById('connexion-status');
+                if (data.openstack_connected) {
+                    badge.textContent = 'OpenStack OK';
+                    badge.className = 'status-badge status-ok';
+                } else {
+                    badge.textContent = 'OpenStack KO';
+                    badge.className = 'status-badge status-error';
+                }
+            } catch (e) {
+                const badge = document.getElementById('connexion-status');
+                badge.textContent = 'Erreur';
+                badge.className = 'status-badge status-error';
+            }
+        });
+    </script>
+</body>
+</html>

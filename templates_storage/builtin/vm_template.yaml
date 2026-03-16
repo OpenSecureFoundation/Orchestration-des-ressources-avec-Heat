@@ -1,0 +1,192 @@
+heat_template_version: 2021-04-16
+description: Template VM - deploie une instance Ubuntu 22.04 avec agent de metriques automatique
+
+parameters:
+  server_name:
+    type: string
+    description: Nom de la VM
+    default: heat-vm
+
+  image_name:
+    type: string
+    description: Nom de l'image a utiliser
+    default: ubuntu-22.04
+    constraints:
+      - custom_constraint: glance.image
+
+  flavor_name:
+    type: string
+    description: Flavor de la VM
+    default: m1.small
+    constraints:
+      - custom_constraint: nova.flavor
+
+  key_name:
+    type: string
+    description: Nom de la paire de cles SSH
+    default: heat-keypair
+    constraints:
+      - custom_constraint: nova.keypair
+
+  network_id:
+    type: string
+    description: ID du reseau sur lequel connecter la VM
+    constraints:
+      - custom_constraint: neutron.network
+
+  security_group_id:
+    type: string
+    description: ID du security group a appliquer
+
+  public_network:
+    type: string
+    description: Reseau public pour l'IP flottante
+    default: public-network
+
+  dashboard_ip:
+    type: string
+    description: IP du dashboard pour l'envoi des metriques
+    default: 192.168.44.134
+
+resources:
+
+  port_vm:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_param: network_id }
+      security_groups:
+        - { get_param: security_group_id }
+
+  ip_flottante:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_network }
+      port_id: { get_resource: port_vm }
+
+  serveur:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: server_name }
+      image: { get_param: image_name }
+      flavor: { get_param: flavor_name }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: port_vm }
+      config_drive: true
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            set -e
+
+            # Mise a jour et installation des dependances
+            apt-get update -q
+            apt-get install -y python3 python3-pip
+
+            pip3 install psutil requests --quiet
+
+            # Creation du script agent de metriques
+            cat > /usr/local/bin/metrics-agent.py << 'AGENT_EOF'
+            #!/usr/bin/env python3
+            """Agent de collecte de metriques systeme."""
+
+            import psutil
+            import requests
+            import time
+            import socket
+            import logging
+
+            logging.basicConfig(
+                level=logging.INFO,
+                format="%(asctime)s [%(levelname)s] %(message)s",
+                filename="/var/log/metrics-agent.log"
+            )
+
+            DASHBOARD_IP = "PLACEHOLDER_DASHBOARD_IP"
+            DASHBOARD_URL = f"http://{DASHBOARD_IP}:8080/api/metrics/alert"
+            SERVER_NAME = "PLACEHOLDER_SERVER_NAME"
+            INTERVAL = 30
+
+            def collecter_metriques():
+                """Collecte les metriques systeme courantes."""
+                net = psutil.net_io_counters()
+                return {
+                    "server_name": SERVER_NAME,
+                    "server_id": socket.gethostname(),
+                    "cpu": psutil.cpu_percent(interval=1),
+                    "ram": psutil.virtual_memory().percent,
+                    "disk": psutil.disk_usage("/").percent,
+                    "network": {
+                        "bytes_sent": net.bytes_sent,
+                        "bytes_recv": net.bytes_recv,
+                    }
+                }
+
+            def main():
+                logging.info(f"Agent demarre - Dashboard : {DASHBOARD_IP}")
+                while True:
+                    try:
+                        metriques = collecter_metriques()
+                        response = requests.post(
+                            DASHBOARD_URL,
+                            json=metriques,
+                            timeout=5
+                        )
+                        if response.status_code == 200:
+                            logging.debug("Metriques envoyees avec succes")
+                        else:
+                            logging.warning(f"Reponse HTTP : {response.status_code}")
+                    except requests.exceptions.ConnectionError:
+                        logging.warning(f"Connexion refusee vers {DASHBOARD_IP}")
+                    except Exception as e:
+                        logging.error(f"Erreur : {e}")
+
+                    time.sleep(INTERVAL)
+
+            if __name__ == "__main__":
+                main()
+            AGENT_EOF
+
+            chmod +x /usr/local/bin/metrics-agent.py
+
+            # Service systemd pour l'agent
+            cat > /etc/systemd/system/metrics-agent.service << 'SERVICE_EOF'
+            [Unit]
+            Description=Heat Metrics Agent
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Type=simple
+            ExecStart=/usr/bin/python3 /usr/local/bin/metrics-agent.py
+            Restart=always
+            RestartSec=10
+            User=root
+            StandardOutput=journal
+            StandardError=journal
+
+            [Install]
+            WantedBy=multi-user.target
+            SERVICE_EOF
+
+            systemctl daemon-reload
+            systemctl enable metrics-agent
+            systemctl start metrics-agent
+
+          params:
+            PLACEHOLDER_DASHBOARD_IP: { get_param: dashboard_ip }
+            PLACEHOLDER_SERVER_NAME: { get_param: server_name }
+
+outputs:
+  server_id:
+    description: ID Nova de la VM creee
+    value: { get_resource: serveur }
+
+  server_ip_private:
+    description: IP privee de la VM
+    value: { get_attr: [serveur, first_address] }
+
+  server_ip_floating:
+    description: IP flottante de la VM
+    value: { get_attr: [ip_flottante, floating_ip_address] }

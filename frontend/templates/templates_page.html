@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Templates - Heat Orchestration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Gestion des Templates</h1>
+    <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-outline" onclick="chargerTemplates()">&#8635; Actualiser</button>
+        <button class="btn btn-primary" onclick="ouvrirModalCreation()">+ Nouveau Template</button>
+    </div>
+</div>
+
+<!-- Bibliothèque de composants -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+        <h2>📦 Bibliothèque de Composants (Sous-templates réutilisables)</h2>
+        <button class="btn btn-sm btn-outline" onclick="chargerComposants()">&#8635; Actualiser</button>
+    </div>
+    <div class="card-body">
+        <p style="color:#64748b;font-size:0.9rem;margin-bottom:1rem;">
+            Ces composants sont des sous-templates Heat réutilisables. Cliquez sur "Utiliser" pour l'injecter dans l'éditeur de templates.
+        </p>
+        <div id="liste-composants" class="loading">Chargement des composants...</div>
+    </div>
+</div>
+
+<!-- Templates utilisateur et builtin -->
+<div class="card">
+    <div class="card-header">
+        <h2>Templates disponibles</h2>
+    </div>
+    <div class="card-body">
+        <div id="liste-templates"><div class="loading">Chargement des templates...</div></div>
+    </div>
+</div>
+
+<!-- Modal création template -->
+<div id="modal-creation-template" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-creation-template')"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>Créer un nouveau Template</h3>
+            <button class="modal-close" onclick="fermerModal('modal-creation-template')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs" style="margin-bottom:1.25rem;">
+                <button class="tab-btn active" id="tab-btn-editeur" onclick="switchCreationMode('editeur',this)">
+                    ✏️ Éditeur en ligne
+                </button>
+                <button class="tab-btn" id="tab-btn-upload" onclick="switchCreationMode('upload',this)">
+                    📁 Upload fichier YAML
+                </button>
+            </div>
+
+            <!-- Mode éditeur -->
+            <div id="mode-editeur">
+                <div class="form-group">
+                    <label>Nom du template *</label>
+                    <input type="text" id="tmpl-nom" class="form-input" placeholder="mon-template" />
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <input type="text" id="tmpl-desc" class="form-input" placeholder="Description courte..." />
+                </div>
+                <div class="form-group">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap;gap:0.5rem;">
+                        <label style="margin:0;">Contenu YAML *</label>
+                        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-outline" onclick="insererSquelette('minimal')">Squelette minimal</button>
+                            <button class="btn btn-sm btn-outline" onclick="insererSquelette('agent')">Squelette + Agent</button>
+                            <button class="btn btn-sm btn-outline" onclick="validerYAML()">✅ Valider YAML</button>
+                        </div>
+                    </div>
+                    <textarea id="tmpl-contenu" class="form-input yaml-editor"
+                        placeholder="Collez ou écrivez votre template Heat YAML ici...
+Astuce : utilisez les boutons 'Squelette' ou 'Insérer composant' pour démarrer."></textarea>
+                </div>
+                <div id="validation-result" style="margin-top:0.5rem;"></div>
+                <!-- Composants à insérer -->
+                <div class="form-group">
+                    <label>Insérer un composant réutilisable</label>
+                    <div style="display:flex;gap:0.5rem;align-items:center;">
+                        <select id="select-composant" class="form-input" style="flex:1;">
+                            <option value="">Choisir un composant...</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline" onclick="insererComposantDansEditeur()">Insérer</button>
+                    </div>
+                    <small style="color:#64748b;">Le composant sera ajouté comme ressource imbriquée dans votre template.</small>
+                </div>
+            </div>
+
+            <!-- Mode upload -->
+            <div id="mode-upload" class="hidden">
+                <div class="form-group">
+                    <label>Nom du template</label>
+                    <input type="text" id="upload-nom" class="form-input" placeholder="Laissez vide pour utiliser le nom du fichier" />
+                </div>
+                <div class="form-group">
+                    <label>Fichier YAML *</label>
+                    <input type="file" id="upload-fichier" class="form-input" accept=".yaml,.yml" />
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-creation-template')">Annuler</button>
+            <button class="btn btn-primary" id="btn-sauvegarder" onclick="sauvegarderTemplate()">Sauvegarder</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal validation template -->
+<div id="modal-validation" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-validation')"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3>Rapport de validation</h3>
+            <button class="modal-close" onclick="fermerModal('modal-validation')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div id="rapport-validation"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-validation')">Fermer</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/templates.js') }}?v=20260312"></script>
+{% endblock %}

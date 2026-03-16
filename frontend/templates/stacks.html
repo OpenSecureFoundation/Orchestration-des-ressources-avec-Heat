@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Stacks - Heat Orchestration{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Gestion des Stacks</h1>
+    <div style="display:flex;gap:0.5rem;">
+        <button class="btn btn-outline" onclick="chargerStacks()">&#8635; Actualiser</button>
+        <button class="btn btn-primary" onclick="ouvrirModalCreation()">+ Nouvelle Stack</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Stacks déployées</h2>
+    </div>
+    <div class="card-body">
+        <div id="tableau-stacks">
+            <div class="loading">Chargement des stacks...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal creation stack -->
+<div id="modal-creation" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-creation')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Nouvelle Stack</h3>
+            <button class="modal-close" onclick="fermerModal('modal-creation')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Nom de la stack</label>
+                <input type="text" id="stack-name" class="form-input" placeholder="ma-stack" />
+            </div>
+            <div class="form-group">
+                <label>Template</label>
+                <select id="stack-template" class="form-input">
+                    <option value="">Chargement...</option>
+                </select>
+            </div>
+            <div id="parametres-template">
+                <h4>Paramètres</h4>
+                <div class="form-group">
+                    <label>Paire de clés SSH</label>
+                    <select id="param-key-name" class="form-input">
+                        <option value="heat-keypair">heat-keypair</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Image</label>
+                    <select id="param-image" class="form-input">
+                        <option value="ubuntu-22.04">ubuntu-22.04</option>
+                        <option value="cirros-0.6.2">cirros-0.6.2</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Flavor</label>
+                    <select id="param-flavor" class="form-input">
+                        <option value="m1.small">m1.small (1 vCPU, 2 Go RAM)</option>
+                        <option value="m1.medium">m1.medium (2 vCPU, 4 Go RAM)</option>
+                        <option value="m1.large">m1.large (4 vCPU, 8 Go RAM)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-creation')">Annuler</button>
+            <button class="btn btn-primary" onclick="creerStack()">Créer la stack</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal details stack -->
+<div id="modal-details" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-details')"></div>
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h3 id="details-titre">Détails de la stack</h3>
+            <button class="modal-close" onclick="fermerModal('modal-details')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="afficherOnglet('ressources', this)">Ressources</button>
+                <button class="tab-btn" onclick="afficherOnglet('outputs', this)">Outputs</button>
+                <button class="tab-btn" onclick="afficherOnglet('evenements', this)">Événements</button>
+                <button class="tab-btn" onclick="afficherOnglet('update', this)">Mettre à jour</button>
+            </div>
+            <div id="onglet-ressources" class="tab-content">
+                <div id="liste-ressources" class="loading">Chargement...</div>
+            </div>
+            <div id="onglet-outputs" class="tab-content hidden">
+                <div id="liste-outputs" class="loading">Chargement...</div>
+            </div>
+            <div id="onglet-evenements" class="tab-content hidden">
+                <div id="liste-evenements" class="loading">Chargement...</div>
+            </div>
+            <div id="onglet-update" class="tab-content hidden">
+                <div style="padding:1rem 0;">
+                    <p style="color:#64748b;font-size:0.9rem;margin-bottom:1rem;">
+                        Modifiez les paramètres de la stack sans la supprimer.
+                        Heat appliquera les changements progressivement.
+                    </p>
+                    <div class="form-group">
+                        <label>Flavor (resize des VMs)</label>
+                        <select id="update-flavor" class="form-input">
+                            <option value="m1.small">m1.small (1 vCPU, 2 Go RAM)</option>
+                            <option value="m1.medium">m1.medium (2 vCPU, 4 Go RAM)</option>
+                            <option value="m1.large">m1.large (4 vCPU, 8 Go RAM)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Image</label>
+                        <select id="update-image" class="form-input">
+                            <option value="ubuntu-22.04">ubuntu-22.04</option>
+                            <option value="cirros-0.6.2">cirros-0.6.2</option>
+                        </select>
+                    </div>
+                    <div id="update-result" style="margin-top:1rem;"></div>
+                    <button class="btn btn-primary" onclick="mettreAJourStack()" style="margin-top:0.5rem;">
+                        Appliquer la mise à jour
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" onclick="supprimerStackEnCours()">Supprimer cette stack</button>
+            <button class="btn btn-outline" onclick="fermerModal('modal-details')">Fermer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmation suppression -->
+<div id="modal-confirm-suppr" class="modal hidden">
+    <div class="modal-overlay" onclick="fermerModal('modal-confirm-suppr')"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Confirmer la suppression</h3>
+            <button class="modal-close" onclick="fermerModal('modal-confirm-suppr')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-danger">
+                Vous êtes sur le point de supprimer la stack <strong id="confirm-stack-nom"></strong>.
+                Toutes les ressources associées (VM, security group, IP flottante) seront détruites.
+                Cette action est irréversible.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="fermerModal('modal-confirm-suppr')">Annuler</button>
+            <button class="btn btn-danger" onclick="confirmerSuppression()">Supprimer définitivement</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/stacks.js') }}?v=20260312"></script>
+{% endblock %}

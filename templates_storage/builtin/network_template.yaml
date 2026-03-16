@@ -1,0 +1,71 @@
+heat_template_version: 2021-04-16
+description: Template reseau - cree un reseau prive avec subnet et routeur connecte au reseau public
+
+parameters:
+  public_network:
+    type: string
+    description: Nom ou ID du reseau public externe
+    default: public-network
+
+  private_network_name:
+    type: string
+    description: Nom du reseau prive a creer
+    default: heat-private-network
+
+  private_subnet_name:
+    type: string
+    description: Nom du subnet prive
+    default: heat-private-subnet
+
+  private_subnet_cidr:
+    type: string
+    description: CIDR du subnet prive
+    default: 10.10.10.0/24
+
+  router_name:
+    type: string
+    description: Nom du routeur
+    default: heat-router
+
+resources:
+
+  reseau_prive:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: private_network_name }
+
+  subnet_prive:
+    type: OS::Neutron::Subnet
+    properties:
+      name: { get_param: private_subnet_name }
+      network_id: { get_resource: reseau_prive }
+      cidr: { get_param: private_subnet_cidr }
+      dns_nameservers:
+        - 8.8.8.8
+        - 8.8.4.4
+
+  routeur:
+    type: OS::Neutron::Router
+    properties:
+      name: { get_param: router_name }
+      external_gateway_info:
+        network: { get_param: public_network }
+
+  interface_routeur:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: routeur }
+      subnet_id: { get_resource: subnet_prive }
+
+outputs:
+  network_id:
+    description: ID du reseau prive cree
+    value: { get_resource: reseau_prive }
+
+  subnet_id:
+    description: ID du subnet prive cree
+    value: { get_resource: subnet_prive }
+
+  router_id:
+    description: ID du routeur cree
+    value: { get_resource: routeur }

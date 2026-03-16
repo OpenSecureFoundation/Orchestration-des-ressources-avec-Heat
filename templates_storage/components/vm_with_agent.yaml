@@ -1,0 +1,96 @@
+heat_template_version: 2018-08-31
+description: "Composant VM avec agent métriques - sous-template réutilisable"
+
+parameters:
+  vm_name:
+    type: string
+    description: Nom de la VM
+  image_name:
+    type: string
+    default: ubuntu-22.04
+  flavor_name:
+    type: string
+    default: m1.small
+  key_name:
+    type: string
+    default: heat-keypair
+  network_name:
+    type: string
+    default: private-network
+  security_group:
+    type: string
+    default: heat-sg
+  dashboard_ip:
+    type: string
+    description: IP du dashboard pour envoi métriques
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: vm_name }
+      image: { get_param: image_name }
+      flavor: { get_param: flavor_name }
+      key_name: { get_param: key_name }
+      networks:
+        - network: { get_param: network_name }
+      security_groups:
+        - { get_param: security_group }
+      user_data_format: RAW
+      user_data:
+        str_replace:
+          template: |
+            #!/bin/bash
+            apt-get update -qq
+            apt-get install -y python3 python3-pip
+            pip3 install psutil requests
+            DASHBOARD_URL="http://__DASHBOARD_IP__:8080"
+            cat > /usr/local/bin/metrics-agent.py << 'AGENT'
+            #!/usr/bin/env python3
+            import psutil, requests, socket, time, logging
+            logging.basicConfig(filename='/var/log/metrics-agent.log',level=logging.INFO,
+                format='%(asctime)s [%(levelname)s] %(message)s')
+            DASHBOARD_URL = "__DASHBOARD_IP_URL__"
+            HOSTNAME = socket.gethostname()
+            while True:
+                try:
+                    data = {
+                        "server_id": HOSTNAME,
+                        "server_name": HOSTNAME,
+                        "cpu": psutil.cpu_percent(interval=1),
+                        "ram": psutil.virtual_memory().percent,
+                        "disk": psutil.disk_usage('/').percent,
+                        "network": {"bytes_sent":0,"bytes_recv":0}
+                    }
+                    r = requests.post(f"{DASHBOARD_URL}/api/metrics/alert",
+                        json=data, timeout=10)
+                    if r.status_code == 200:
+                        logging.info("Métriques envoyées avec succès")
+                except Exception as e:
+                    logging.error(f"Erreur: {e}")
+                time.sleep(30)
+            AGENT
+            chmod +x /usr/local/bin/metrics-agent.py
+            cat > /etc/systemd/system/metrics-agent.service << 'SVC'
+            [Unit]
+            Description=Heat Metrics Agent
+            After=network.target
+            [Service]
+            ExecStart=/usr/bin/python3 /usr/local/bin/metrics-agent.py
+            Restart=always
+            [Install]
+            WantedBy=multi-user.target
+            SVC
+            systemctl enable metrics-agent
+            systemctl start metrics-agent
+          params:
+            __DASHBOARD_IP__: { get_param: dashboard_ip }
+            __DASHBOARD_IP_URL__: { str_replace: { template: "http://__IP__:8080", params: { __IP__: { get_param: dashboard_ip } } } }
+
+outputs:
+  server_id:
+    description: UUID de la VM
+    value: { get_resource: server }
+  server_ip:
+    description: IP privée de la VM
+    value: { get_attr: [server, first_address] }

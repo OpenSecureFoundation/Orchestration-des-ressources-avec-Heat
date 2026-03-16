@@ -1,0 +1,43 @@
+heat_template_version: 2018-08-31
+description: "Composant VM simple - sous-template réutilisable"
+
+parameters:
+  vm_name:
+    type: string
+    description: Nom de la VM
+  image_name:
+    type: string
+    default: ubuntu-22.04
+  flavor_name:
+    type: string
+    default: m1.small
+  key_name:
+    type: string
+    default: heat-keypair
+  network_name:
+    type: string
+    default: private-network
+  security_group:
+    type: string
+    default: default
+
+resources:
+  server:
+    type: OS::Nova::Server
+    properties:
+      name: { get_param: vm_name }
+      image: { get_param: image_name }
+      flavor: { get_param: flavor_name }
+      key_name: { get_param: key_name }
+      networks:
+        - network: { get_param: network_name }
+      security_groups:
+        - { get_param: security_group }
+
+outputs:
+  server_id:
+    description: UUID de la VM
+    value: { get_resource: server }
+  server_ip:
+    description: IP privée de la VM
+    value: { get_attr: [server, first_address] }
